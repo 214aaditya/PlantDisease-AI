@@ -2,6 +2,7 @@ fastapi
 uvicorn
 torch==2.12.1
 torchvision==0.27.1
+timm
 python-multipart
 Pillow
 requests

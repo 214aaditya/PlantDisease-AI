@@ -69,10 +69,10 @@ async def read_root(request: Request):
     Serve the Home Page (index.html).
     """
     return templates.TemplateResponse(
-        "index.html", 
-        {
-            "request": request, 
-            "maintenance_mode": config.MAINTENANCE_MODE, 
+        request=request,
+        name="index.html",
+        context={
+            "maintenance_mode": config.MAINTENANCE_MODE,
             "maintenance_time": config.MAINTENANCE_TIME
         }
     )

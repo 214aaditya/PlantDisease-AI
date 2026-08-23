@@ -1,9 +1,9 @@
 fastapi
 uvicorn
-torch
-torchvision
-timm
+torch==2.12.1
+torchvision==0.27.1
 python-multipart
 Pillow
 requests
 python-dotenv
+--extra-index-url https://download.pytorch.org/whl/cpu

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlantDiseaseAI - Premium Plant Diagnostics</title>
+    
+    <!-- Meta tags for SEO -->
+    <meta name="description" content="Diagnose plant diseases instantly using world-class AI. Upload leaf images, receive expert organic & chemical treatment options, translate reports, and get voice guidelines.">
+    <meta name="keywords" content="plant disease detection, AI agriculture, crop diagnostics, farming advisor, tomato disease, leaf scanner, SaaS">
+    <meta name="author" content="PlantDiseaseAI Group">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/static/css/style.css?v=3">
+    
+    <!-- Marked.js for Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="theme-light">
+    
+    <!-- Maintenance Modal (Controlled by JS) -->
+    <div id="maintenanceModal" class="maintenance-overlay" style="display: none;">
+        <div class="maintenance-card">
+            <i class="fa-solid fa-screwdriver-wrench" style="font-size: 3.5rem; color: var(--primary-color); margin-bottom: 20px;"></i>
+            <h2>System Under Maintenance</h2>
+            <p>We are currently upgrading our AI models and systems to serve you better.</p>
+            <div class="maintenance-time">
+                <i class="fa-regular fa-clock"></i> Please visit back in: <strong id="maintenanceTimeText">{{ maintenance_time }}</strong>
+            </div>
+            <p class="maintenance-footer">Thank you for your patience!</p>
+        </div>
+    </div>
+    
+    <script>
+        // Single JavaScript boolean variable to control maintenance mode
+        // Inherits value from backend .env configuration
+        const maintenanceMode = "{{ 'true' if maintenance_mode else 'false' }}" === "true";
+        
+        if (maintenanceMode) {
+            document.getElementById('maintenanceModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Disable interaction/scrolling
+        }
+    </script>
+
+    <!-- Sticky Header Navigation -->
+    <header>
+        <div class="logo-section">
+            <i class="fa-solid fa-leaf logo-icon"></i>
+            <h1>PlantDiseaseAI</h1>
+        </div>
+        
+        <nav class="nav-links">
+            <a href="#">Home</a>
+            <a href="#features">Features</a>
+            <a href="#statistics">Statistics</a>
+            <a href="#">Contact</a>
+        </nav>
+
+        <div class="header-controls">
+            <!-- Language Selector -->
+            <select id="langSelect" class="lang-select" aria-label="Select Language">
+                <option value="English">English</option>
+                <option value="Hindi">Hindi (हिन्दी)</option>
+                <option value="Bengali">Bengali (বাংলা)</option>
+                <option value="Tamil">Tamil (தமிழ்)</option>
+                <option value="Telugu">Telugu (తెలుగు)</option>
+                <option value="Kannada">Kannada (ಕನ್ನಡ)</option>
+                <option value="Gujarati">Gujarati (ગુજરાતી)</option>
+                <option value="Marathi">Marathi (मराठी)</option>
+                <option value="Punjabi">Punjabi (ਪੰਜਾਬੀ)</option>
+                <option value="Malayalam">Malayalam (മലയാളം)</option>
+            </select>
+            
+            <!-- Dark Mode Toggle -->
+            <button id="themeToggle" class="theme-toggle" aria-label="Toggle Dark Mode">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- Main Content -->
+        <main>
+            <!-- Hero / Upload Section -->
+            <section id="heroSection" class="hero-section">
+                <div class="hero-text">
+                    <h2>Protect Your Crops with <br><span class="gradient-text">Instant AI Diagnostics</span></h2>
+                    <p>Upload a clear photo of an infected plant leaf to identify the disease and receive tailored treatment plans instantly.</p>
+                </div>
+
+                <div class="upload-wrapper glass-panel">
+                    <!-- Drag and Drop Input Box -->
+                    <div id="dropZone" class="drop-zone">
+                        <i class="fa-solid fa-expand drop-icon"></i>
+                        <p>Drag and drop your leaf image here</p>
+                        <span class="drop-zone-accent">
+                            <i class="fa-regular fa-image"></i> Supports PNG, JPG, JPEG, WEBP (Max 10MB)
+                        </span>
+                        <input type="file" id="fileInput" accept="image/*" style="display: none;" aria-label="Upload leaf image">
+                    </div>
+
+                    <!-- Image Preview Grid -->
+                    <div id="previewContainer" class="preview-container">
+                        <img id="imagePreview" src="#" alt="Leaf Preview" class="preview-image">
+                        <div class="preview-overlay">
+                            <span id="previewFilename">leaf_image.jpg</span>
+                            <span id="previewFilesize">0 KB</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="upload-actions" style="margin-top: 24px;">
+                        <button id="browseBtn" class="btn btn-secondary">
+                            <i class="fa-regular fa-folder-open"></i> Browse
+                        </button>
+                        <button id="cameraBtn" class="btn btn-secondary">
+                            <i class="fa-solid fa-camera"></i> Camera
+                        </button>
+                        <!-- Predict Button with disabled state styling and tooltip -->
+                        <button id="predictBtn" class="btn btn-predict" disabled title="Upload an image to enable prediction">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Predict
+                        </button>
+                        <button id="resetBtn" class="btn btn-danger" style="display: none;">
+                            <i class="fa-solid fa-trash-can"></i> Remove Image
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Loading Spinner Modal -->
+            <section id="loadingWrapper" class="loading-overlay" style="display: none;">
+                <div class="loading-modal glass-panel">
+                    <div class="spinner"></div>
+                    <p id="loadingText" class="loading-text">Analyzing leaf parameters...</p>
+                </div>
+            </section>
+
+            <!-- Results Dashboard -->
+            <section id="dashboardGrid" class="dashboard-grid">
+                
+                <!-- Left Sidebar: Prediction Details -->
+                <div class="prediction-sidebar">
+                    <div class="glass-panel">
+                        <h3 style="font-family: 'Outfit', sans-serif; margin-bottom: 24px; font-size: 1.4rem;">
+                            <i class="fa-solid fa-microscope" style="color: var(--primary-color); margin-right: 12px;"></i>Diagnosis Result
+                        </h3>
+                        
+                        <!-- Leaf Picture in Result Card -->
+                        <div style="width: 100%; height: 220px; border-radius: var(--border-radius-md); overflow: hidden; background: #000; margin-bottom: 24px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                            <img id="resultImage" src="#" alt="Diagnosed leaf" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+
+                        <!-- Crop Disease Title -->
+                        <h2 id="predictedDiseaseName" style="font-family: 'Outfit', sans-serif; font-size: 1.8rem; line-height: 1.3; font-weight: 800;">Tomato - Late Blight</h2>
+                        
+                        <!-- Severity/Health Badges -->
+                        <div class="badge-group">
+                            <span id="healthBadge" class="badge badge-diseased">Diseased</span>
+                            <span id="severityBadge" class="badge badge-severity-high">High Severity</span>
+                        </div>
+
+                        <hr style="border: 0; border-top: 1px solid var(--card-border); margin: 32px 0;">
+
+                        <!-- Confidence Meter -->
+                        <div class="meter-container">
+                            <h4 style="font-size: 1rem; margin-bottom: 24px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Model Confidence</h4>
+                            <div id="confidenceCircle" class="progress-circle">
+                                <span id="confidenceValue" class="progress-circle-val">89%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top 5 predictions list -->
+                    <div class="glass-panel">
+                        <h3 style="font-family: 'Outfit', sans-serif; margin-bottom: 20px; font-size: 1.25rem;">
+                            <i class="fa-solid fa-chart-bar" style="color: var(--primary-color); margin-right: 12px;"></i>Top Predictions
+                        </h3>
+                        <div id="topPredictionsList" class="top-predictions-list">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: AI Assistant Insights & Voice controls -->
+                <div class="assistant-content">
+                    
+                    <!-- Voice Assistant Bar -->
+                    <div class="voice-assistant-bar">
+                        <div class="voice-info">
+                            <i class="fa-solid fa-volume-high"></i>
+                            <span id="voiceStatus">Listen to Audio Advice</span>
+                        </div>
+                        <div class="voice-controls">
+                            <button id="voicePlayBtn" class="voice-btn" title="Play audio guide" aria-label="Play audio guide">
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                            <button id="voiceStopBtn" class="voice-btn" title="Stop playing" aria-label="Stop playing" disabled>
+                                <i class="fa-solid fa-stop"></i>
+                            </button>
+                            <a id="voiceDownloadBtn" class="voice-btn" title="Download MP3" aria-label="Download MP3" href="#" download style="display: none;">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                        </div>
+                        <!-- Hidden audio player for TTS -->
+                        <audio id="audioPlayer" style="display:none;"></audio>
+                    </div>
+
+                    <!-- Detailed AI Report Card -->
+                    <div id="insightsGrid" class="insights-grid" style="display: none;">
+                        <div class="insight-card glass-panel" style="grid-column: 1 / -1; text-align: center;">
+                            <p class="skeleton-text skeleton-loading">Generating comprehensive report...</p>
+                        </div>
+                    </div>
+
+                    <div id="reportCard" class="report-card" style="display: none; flex-direction: column; gap: 20px;">
+                        <h2 class="report-title" style="margin-bottom: 0;"><i class="fa-solid fa-file-medical" style="color: var(--primary-color);"></i> Comprehensive Diagnosis Report</h2>
+                        
+                        <!-- Overview Section -->
+                        <div class="report-section glass-panel">
+                            <h3><i class="fa-solid fa-circle-info"></i> Overview</h3>
+                            <p id="reportDescription" class="report-text" style="margin-bottom: 16px;"></p>
+                            
+                            <div class="report-split" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                                <div class="split-col">
+                                    <h4 style="margin-bottom: 8px; color: var(--primary-color);"><i class="fa-solid fa-virus"></i> Key Symptoms</h4>
+                                    <ul id="reportSymptoms" class="report-list"></ul>
+                                </div>
+                                <div class="split-col">
+                                    <h4 style="margin-bottom: 8px; color: var(--primary-color);"><i class="fa-solid fa-microscope"></i> Primary Causes</h4>
+                                    <ul id="reportCauses" class="report-list"></ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Treatment Plan -->
+                        <div class="report-section glass-panel danger" style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.2);">
+                            <h3 style="color: #ef4444;"><i class="fa-solid fa-prescription-bottle-medical"></i> Treatment Plan</h3>
+                            
+                            <div class="treatment-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0;">
+                                <div class="treatment-card chemical" style="background: var(--card-bg); padding: 12px; border-radius: 8px;">
+                                    <h4 style="margin-bottom: 8px; color: #ef4444;"><i class="fa-solid fa-flask"></i> Chemical Options</h4>
+                                    <ul id="reportChemical" class="report-list"></ul>
+                                </div>
+                                <div class="treatment-card organic" style="background: var(--card-bg); padding: 12px; border-radius: 8px;">
+                                    <h4 style="margin-bottom: 8px; color: var(--primary-color);"><i class="fa-solid fa-leaf"></i> Organic Options</h4>
+                                    <ul id="reportOrganic" class="report-list"></ul>
+                                </div>
+                            </div>
+                            
+                            <div class="application-notes" style="background: var(--card-bg); padding: 12px; border-radius: 8px; border-left: 4px solid #ef4444;">
+                                <strong><i class="fa-solid fa-clipboard-list"></i> Application Notes:</strong>
+                                <p id="reportAppNotes" style="margin-top: 4px;"></p>
+                            </div>
+                        </div>
+
+                        <!-- Timeline & Prevention -->
+                        <div class="report-section glass-panel">
+                            <h3><i class="fa-solid fa-shield-halved"></i> Timeline & Prevention</h3>
+                            
+                            <div class="timeline-container" style="display: flex; flex-direction: column; gap: 12px; margin: 16px 0;">
+                                <div class="timeline-step" style="display: flex; gap: 12px; align-items: flex-start;">
+                                    <div class="step-badge" style="background: var(--primary-color); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; min-width: 80px; text-align: center;">Day 1-2</div>
+                                    <p id="reportDay1" style="flex: 1;"></p>
+                                </div>
+                                <div class="timeline-step" style="display: flex; gap: 12px; align-items: flex-start;">
+                                    <div class="step-badge" style="background: rgba(16, 185, 129, 0.7); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; min-width: 80px; text-align: center;">Day 5-7</div>
+                                    <p id="reportDay5" style="flex: 1;"></p>
+                                </div>
+                                <div class="timeline-step" style="display: flex; gap: 12px; align-items: flex-start;">
+                                    <div class="step-badge" style="background: rgba(16, 185, 129, 0.4); color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; min-width: 80px; text-align: center;">Ongoing</div>
+                                    <p id="reportOngoing" style="flex: 1;"></p>
+                                </div>
+                            </div>
+                            
+                            <div class="prevention-box" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--card-border);">
+                                <h4 style="margin-bottom: 8px; color: var(--primary-color);"><i class="fa-solid fa-hand-sparkles"></i> Future Prevention</h4>
+                                <ul id="reportPrevention" class="report-list"></ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Agri-Chat Widget -->
+                    <div class="chat-widget glass-panel" style="margin-top: 24px; padding: 24px; display: flex; flex-direction: column;">
+                        <h3 style="font-family: 'Outfit', sans-serif; margin-bottom: 16px; font-size: 1.25rem;">
+                            <i class="fa-solid fa-comments" style="color: var(--primary-color); margin-right: 12px;"></i>Agri-Chat (Ask AI)
+                        </h3>
+                        <div id="chatMessages" class="chat-messages">
+                            <div class="chat-bubble bot">
+                                <div class="chat-bubble-content">
+                                    <span>Hello! I'm your Agri-Assistant. Do you have any follow-up questions about this diagnosis?</span>
+                                    <button class="chat-tts-btn" onclick="const a=new Audio(); /* basic fallback */"><i class="fa-solid fa-volume-high"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input type="text" id="chatInput" placeholder="Ask about treatments, dosages, etc..." autocomplete="off">
+                            <button id="chatSendBtn" class="btn btn-primary" style="padding: 10px 16px; border-radius: 8px;">
+                                <i class="fa-solid fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dashboard Actions (Download/Share UI Elements) -->
+                    <div class="dashboard-actions">
+                        <button class="btn btn-secondary" onclick="window.print()">
+                            <i class="fa-solid fa-file-pdf"></i> Download PDF Report
+                        </button>
+                        <button class="btn btn-secondary" onclick="alert('Sharing capabilities coming soon!')">
+                            <i class="fa-solid fa-share-nodes"></i> Share Results
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Statistics Section -->
+            <section id="statistics" class="statistics-section glass-panel">
+                <div class="stat-card">
+                    <i class="fa-solid fa-bullseye"></i>
+                    <h3>98%</h3>
+                    <p>Detection Accuracy</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-viruses"></i>
+                    <h3>38+</h3>
+                    <p>Supported Diseases</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-seedling"></i>
+                    <h3>14</h3>
+                    <p>Supported Crops</p>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-language"></i>
+                    <h3>10</h3>
+                    <p>Languages Supported</p>
+                </div>
+            </section>
+
+            <!-- Features Section -->
+            <section id="features" class="features-section">
+                <div class="section-header">
+                    <h2>Powerful AI Capabilities</h2>
+                    <p>Everything you need to diagnose, treat, and protect your crops in one seamless interface.</p>
+                </div>
+                
+                <div class="features-grid">
+                    <div class="feature-card glass-panel">
+                        <div class="feature-icon-wrapper"><i class="fa-solid fa-brain"></i></div>
+                        <h3>Instant AI Detection</h3>
+                        <p>Upload a photo and let our advanced neural networks identify the exact disease affecting your plants with high confidence within seconds.</p>
+                    </div>
+                    <div class="feature-card glass-panel">
+                        <div class="feature-icon-wrapper"><i class="fa-solid fa-leaf"></i></div>
+                        <h3>Organic & Chemical Solutions</h3>
+                        <p>Receive comprehensive, tailored action plans including both eco-friendly organic remedies and effective chemical treatments.</p>
+                    </div>
+                    <div class="feature-card glass-panel">
+                        <div class="feature-icon-wrapper"><i class="fa-solid fa-ear-listen"></i></div>
+                        <h3>Voice Guidance</h3>
+                        <p>Listen to generated audio advice in real-time, perfect for hands-free operations while you are out in the field.</p>
+                    </div>
+                    <div class="feature-card glass-panel">
+                        <div class="feature-icon-wrapper"><i class="fa-solid fa-language"></i></div>
+                        <h3>Multi-language Support</h3>
+                        <p>Translate your diagnostic reports instantly into 10 regional languages, breaking down barriers for local farmers.</p>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+ 
+        <!-- Footer -->
+        <footer>
+            <p>&copy; 2026 PlantDiseaseAI. Empowering growers with machine learning. <br><a href="#">Learn more about sustainable farming</a></p>
+        </footer>
+
+    </div>
+
+    <!-- Beautiful Webcam Capture Modal -->
+    <div id="cameraModal" class="camera-modal">
+        <div class="camera-modal-content">
+            <h3 style="font-family: 'Outfit', sans-serif; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; font-size: 1.6rem;">
+                <i class="fa-solid fa-camera" style="color: var(--primary-color);"></i>
+                Capture Leaf Photo
+            </h3>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Align your plant leaf within the camera frame and click "Snap Photo". Make sure the lighting is clear.</p>
+            <div class="video-container">
+                <video id="webcamStream" autoplay playsinline muted></video>
+                <canvas id="photoCanvas" style="display: none;"></canvas>
+            </div>
+            <div class="camera-modal-actions">
+                <button id="snapPhotoBtn" class="btn btn-primary">
+                    <i class="fa-solid fa-circle-dot"></i> Snap Photo
+                </button>
+                <button id="closeCameraBtn" class="btn btn-danger">
+                    <i class="fa-solid fa-xmark"></i> Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Beautiful Center Screen Error Modal -->
+    <div id="errorModal" class="camera-modal">
+        <div class="camera-modal-content" style="max-width: 480px; text-align: center; border-left: 6px solid var(--danger-color);">
+            <h3 style="font-family: 'Outfit', sans-serif; color: var(--danger-color); margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 1.6rem;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                System Alert
+            </h3>
+            <p id="errorModalText" style="color: var(--text-primary); font-size: 1.05rem; margin-bottom: 32px; line-height: 1.6; text-align: left;"></p>
+            <button id="errorModalOkBtn" class="btn btn-primary" style="width: 100%;">
+                <i class="fa-solid fa-check"></i> Acknowledge
+            </button>
+        </div>
+    </div>
+
+    <!-- Google Translate Widget -->
+    <div id="google_translate_element" style="display:none;"></div>
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({pageLanguage: 'en', autoDisplay: false}, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <!-- External Script JS -->
+    <script src="/static/js/script.js?v=3"></script>
+</body>
+</html>

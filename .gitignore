@@ -1,0 +1,36 @@
+# ============================================================
+# PlantDiseaseAI - .gitignore
+# ============================================================
+
+# Environment variables — NEVER commit this!
+.env
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Uploaded images (user data)
+uploads/
+
+# Generated audio files
+output_audio/
+
+# Trained model files (too large for git — use Git LFS or share separately)
+model/*.keras
+model/*.h5
+model/*.pb
+model/*.pt
+
+# IDE / OS files
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
